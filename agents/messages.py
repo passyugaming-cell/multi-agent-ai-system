@@ -16,6 +16,8 @@ class MessageType(str, Enum):
     HANDOFF = "HANDOFF"
     EVENT = "EVENT"
     ERROR = "ERROR"
+    DEBUG_REQUEST = "DEBUG_REQUEST"
+    DEBUG_RESPONSE = "DEBUG_RESPONSE"
 
 
 class AgentMessage(BaseModel):
