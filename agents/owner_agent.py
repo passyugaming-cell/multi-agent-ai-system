@@ -12,8 +12,10 @@ from agents.base import BaseAgent
 from agents.context import AgentContext
 from agents.contracts import AgentResult
 from agents.message_bus import MessageBus
+from agents.messages import AgentMessage, MessageType
 from agents.prompts.owner_prompt import OWNER_SYSTEM_INSTRUCTION
 from core.ai.genai_client import GenAIClient
+from core.exceptions import MessageDeliveryError
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,10 @@ class OwnerDecision(BaseModel):
     )
     reasoning: str = Field(
         ..., description="Step-by-step reasoning supporting the decision."
+    )
+    target_agent: Optional[str] = Field(
+        default=None,
+        description="Structured route indicating if specialized agent ('cs-agent', 'ads-agent', 'debugger-agent') is required.",
     )
     facts: List[str] = Field(
         default_factory=list,
@@ -150,3 +156,44 @@ class OwnerAgent(BaseAgent):
                 request_id=context.request_id,
                 error=f"OwnerAgent failed to generate decision: {e}",
             )
+
+    async def delegate_to_agent(
+        self,
+        recipient_agent: str,
+        payload: Dict[str, Any],
+        context: AgentContext,
+        message_type: MessageType = MessageType.REQUEST,
+        timeout: float = 10.0,
+    ) -> AgentMessage:
+        """Delegate a request to a specialized agent via MessageBus request-reply.
+
+        Args:
+            recipient_agent: Identifier of target specialized agent.
+            payload: Typed or structured request payload.
+            context: Current execution context.
+            message_type: Type of message (default REQUEST or DEBUG_REQUEST).
+            timeout: Maximum response waiting timeout in seconds.
+
+        Returns:
+            AgentMessage: Received response message preserving request_id and correlation context.
+        """
+        if not self.message_bus:
+            raise MessageDeliveryError("MessageBus instance is required for OwnerAgent delegation.")
+
+        msg = AgentMessage(
+            conversation_id=context.conversation_id,
+            request_id=context.request_id,
+            sender_agent=self.agent_id,
+            recipient_agent=recipient_agent,
+            message_type=message_type,
+            payload=payload,
+        )
+
+        logger.info(
+            "OwnerAgent delegating request (request_id=%s) to '%s'",
+            context.request_id,
+            recipient_agent,
+        )
+
+        response = await self.message_bus.request_reply(msg, timeout=timeout)
+        return response

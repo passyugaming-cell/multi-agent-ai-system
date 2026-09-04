@@ -9,13 +9,49 @@ A modular, production-oriented Python foundation for a Multi-Agent AI system usi
 ## Project Purpose
 
 This project provides an extensible scaffolding and architectural foundation for specialized AI agents.
-Phase 2 establishes the core agent execution engine, centralized GenAI client, inter-agent messaging bus, and the Owner Agent.
+Phase 3 implements specialized domain agents (CS Agent, Ads Agent, Debugger Agent), typed inter-agent communication flows, runtime error capture, credential sanitization, and a controlled self-debugging loop.
 
 ### Status of Agent Modules
-1. **Owner Agent**: High-level task orchestration, decision-support, and grounded decision modeling (Implemented in Phase 2).
-2. **CS Agent**: Customer support ticket handling and inquiry processing (Future implementation).
-3. **Ads Agent**: Advertising campaign management and marketing analytics (Future implementation).
-4. **Debugger Agent**: System diagnostics, error analysis, and automated troubleshooting (Future implementation).
+1. **Owner Agent**: High-level task orchestration, decision-support, supervisory routing, and grounded decision modeling (Phase 2 & Phase 3).
+2. **CS Agent**: Customer support reasoning, message classification, and grounded customer assistance without hallucinating unavailable business facts (Phase 3).
+3. **Ads Agent**: Advertising analytics, campaign performance evaluation, and optimization recommendations without external autonomous action capabilities (Phase 3).
+4. **Debugger Agent**: System error classification, root-cause analysis, and structured, non-executing patch recommendations (Phase 3).
+
+## Phase 3 Architecture & Safety Boundaries
+
+```
+                         +----------------+
+                         |   Owner Agent  |
+                         +-------+--------+
+                                 |
+                +----------------+----------------+
+                |                                 |
+                v                                 v
+        +---------------+                  +---------------+
+        |    CS Agent   |                  |    Ads Agent  |
+        +-------+-------+                  +-------+-------+
+                |                                 |
+                |                                 |
+                +---------------+-----------------+
+                                |
+                                v
+                       +----------------+
+                       | Debugger Agent |
+                       +----------------+
+                                |
+                                v
+                       Error Analysis
+                                |
+                                v
+                       Patch Recommendation
+```
+
+### Safety Principles & Execution Guardrails
+- **The Debugger Agent does NOT automatically modify source code or run shell commands.** All generated patches are structured recommendations requiring human or authorized review (`requires_human_review=True`).
+- **The Ads Agent does NOT automatically spend money or perform external campaign actions.** It provides analytics and optimization strategy recommendations only.
+- **The CS Agent does NOT invent unavailable business facts.** Product prices, order statuses, inventory, and fees are explicitly marked unavailable when missing from grounded facts.
+- **Credential & Secret Sanitization**: `core/debugging/error_capture.py` redacts API keys, bearer tokens, passwords, and secrets before placing stack traces into `ErrorReport` objects for model analysis.
+- **Self-Debugging Attempt Limit**: `SelfDebuggingLoop` enforces a strict hard ceiling on debugging iterations (`max_attempts=3`) to prevent infinite recursive error analysis loops.
 
 ## Project Structure
 
@@ -31,10 +67,13 @@ Phase 2 establishes the core agent execution engine, centralized GenAI client, i
 ├── core/                   # Core infrastructure abstractions and exceptions
 │   ├── __init__.py
 │   ├── exceptions.py       # Custom exception hierarchy
-│   └── ai/                 # Central Google GenAI abstraction
+│   ├── ai/                 # Central Google GenAI abstraction
+│   │   ├── __init__.py
+│   │   ├── exceptions.py   # AI Client exceptions
+│   │   └── genai_client.py # GenAIClient wrapper & AIResponse contract
+│   └── debugging/          # Runtime error capture and secret sanitization
 │       ├── __init__.py
-│       ├── exceptions.py   # AI Client exceptions
-│       └── genai_client.py # GenAIClient wrapper & AIResponse contract
+│       └── error_capture.py# capture_exception and sanitize_text
 │
 ├── agents/                 # Agent modules, engine, message bus, and contracts
 │   ├── __init__.py
@@ -45,11 +84,20 @@ Phase 2 establishes the core agent execution engine, centralized GenAI client, i
 │   ├── registry.py         # AgentRegistry in-memory registry
 │   ├── messages.py         # AgentMessage and MessageType enum
 │   ├── message_bus.py      # MessageBus interface and InMemoryMessageBus
+│   ├── router.py           # AgentRouter allowlist router
 │   ├── owner_agent.py      # OwnerAgent implementation & OwnerDecision schema
+│   ├── cs_agent.py         # CSAgent implementation & CSRequest/CSResponse schemas
+│   ├── ads_agent.py        # AdsAgent implementation & AdsRequest/AdsAnalysis schemas
+│   ├── debugger_agent.py   # DebuggerAgent implementation & DebugAnalysis schema
+│   ├── debugging_models.py # ErrorReport, DebuggerRequest, PatchRecommendation
+│   ├── debugging_loop.py   # SelfDebuggingLoop orchestration
 │   │
 │   └── prompts/            # Grounded prompt instructions
 │       ├── __init__.py
-│       └── owner_prompt.py # OWNER_SYSTEM_INSTRUCTION prompt
+│       ├── owner_prompt.py # OWNER_SYSTEM_INSTRUCTION
+│       ├── cs_prompt.py    # CS_SYSTEM_INSTRUCTION
+│       ├── ads_prompt.py   # ADS_SYSTEM_INSTRUCTION
+│       └── debugger_prompt.py # DEBUGGER_SYSTEM_INSTRUCTION
 │
 ├── tools/                  # Tool abstractions and security guardrails
 │   ├── __init__.py
@@ -59,14 +107,20 @@ Phase 2 establishes the core agent execution engine, centralized GenAI client, i
 │   ├── __init__.py
 │   └── base.py             # BaseRepository generic abstract class
 │
-└── tests/                  # Unit test suite
+└── tests/                  # Unit and integration test suite
     ├── __init__.py
-    ├── test_config.py        # Tests for configuration and environment handling
-    ├── test_genai_client.py  # Tests for GenAIClient (offline mocked)
-    ├── test_agent_registry.py# Tests for AgentRegistry
-    ├── test_message_bus.py   # Tests for InMemoryMessageBus
-    ├── test_agent_engine.py  # Tests for AgentEngine execution
-    └── test_owner_agent.py   # Tests for OwnerAgent decision logic
+    ├── test_config.py           # Tests for configuration and environment handling
+    ├── test_genai_client.py     # Tests for GenAIClient (offline mocked)
+    ├── test_agent_registry.py   # Tests for AgentRegistry
+    ├── test_message_bus.py      # Tests for InMemoryMessageBus
+    ├── test_agent_engine.py     # Tests for AgentEngine execution
+    ├── test_owner_agent.py      # Tests for OwnerAgent decision logic
+    ├── test_cs_agent.py         # Tests for CS Agent reasoning and contracts
+    ├── test_ads_agent.py        # Tests for Ads Agent analytics and contracts
+    ├── test_debugger_agent.py   # Tests for Debugger Agent analysis and patch recommendations
+    ├── test_debugging_loop.py   # Tests for SelfDebuggingLoop and max attempts limit
+    ├── test_error_sanitization.py# Tests for credential sanitization and ErrorReport
+    └── test_agent_integration.py# End-to-end multi-agent communication integration tests
 ```
 
 ## Setup & Installation
@@ -109,29 +163,12 @@ Run the application entry point:
 python main.py
 ```
 
-Expected output when running without API keys:
-
-```text
-INFO - Initializing Multi-Agent AI System Phase 2 architecture...
-INFO - Configuration loaded successfully (Environment: development, Model: gemini-2.5-flash)
-INFO - No API key detected in environment. GenAIClient initialization skipped for bootstrap check.
-INFO - Active registered agents in system: []
-INFO - Multi-Agent AI System Phase 2 foundation initialized successfully.
-```
-
 ## How to Run Tests
 
-Execute the full unit test suite with `pytest`:
+Execute the full unit and integration test suite with `pytest`:
 
 ```bash
 python3 -m pytest
 ```
 
-All standard unit tests run completely offline without requiring real API credentials.
-
-## Phase 2 Implementation Details
-
-- **Centralized GenAI Client**: `GenAIClient` wraps the official `google-genai` SDK (`from google import genai`), managing credentials securely, preventing API key exposure, and sanitizing raw SDK errors into typed application exceptions (`GenAIClientError`, `GenAIModelError`).
-- **Agent Framework & Contracts**: `BaseAgent`, `AgentContext`, `AgentResult`, `AgentRegistry`, and `AgentEngine` establish strict typed boundaries and recursion prevention for agent execution.
-- **Inter-Agent Messaging**: `InMemoryMessageBus` provides safe, typed pub/sub and request/reply inter-agent communication using validated `AgentMessage` objects.
-- **Owner Agent**: `OwnerAgent` leverages grounded system instructions (`OWNER_SYSTEM_INSTRUCTION`) and structured Pydantic model parsing (`OwnerDecision`) for decision support without hallucinating unverified business data.
+All standard unit and integration tests run completely offline without requiring real API credentials.
