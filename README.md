@@ -9,31 +9,47 @@ A modular, production-oriented Python foundation for a Multi-Agent AI system usi
 ## Project Purpose
 
 This project provides an extensible scaffolding and architectural foundation for specialized AI agents.
-Phase 1 establishes clean, typed, and modular abstractions for agents, tools, databases, exception handling, and application configuration.
+Phase 2 establishes the core agent execution engine, centralized GenAI client, inter-agent messaging bus, and the Owner Agent.
 
-Planned agent modules in subsequent phases include:
-1. **Owner Agent**: High-level task orchestration and decision-making.
-2. **CS Agent**: Customer support ticket handling and inquiry processing.
-3. **Ads Agent**: Advertising campaign management and marketing analytics.
-4. **Debugger Agent**: System diagnostics, error analysis, and automated troubleshooting.
+### Status of Agent Modules
+1. **Owner Agent**: High-level task orchestration, decision-support, and grounded decision modeling (Implemented in Phase 2).
+2. **CS Agent**: Customer support ticket handling and inquiry processing (Future implementation).
+3. **Ads Agent**: Advertising campaign management and marketing analytics (Future implementation).
+4. **Debugger Agent**: System diagnostics, error analysis, and automated troubleshooting (Future implementation).
 
 ## Project Structure
 
 ```
 .
 ├── main.py                 # Application entry point & foundation startup check
-├── config.py               # Pydantic settings & Google GenAI client factory
+├── config.py               # Settings management & GEMINI_MODEL configuration
 ├── requirements.txt        # Project dependencies
 ├── .env.example            # Environment variable template
 ├── .gitignore              # Git ignore rules for secrets, caches, and build artifacts
 ├── README.md               # Project documentation
 │
-├── agents/                 # Agent modules and placeholder interfaces
+├── core/                   # Core infrastructure abstractions and exceptions
 │   ├── __init__.py
-│   ├── owner_agent.py
-│   ├── cs_agent.py
-│   ├── ads_agent.py
-│   └── debugger_agent.py
+│   ├── exceptions.py       # Custom exception hierarchy
+│   └── ai/                 # Central Google GenAI abstraction
+│       ├── __init__.py
+│       ├── exceptions.py   # AI Client exceptions
+│       └── genai_client.py # GenAIClient wrapper & AIResponse contract
+│
+├── agents/                 # Agent modules, engine, message bus, and contracts
+│   ├── __init__.py
+│   ├── base.py             # BaseAgent abstract class
+│   ├── context.py          # AgentContext execution context
+│   ├── contracts.py        # AgentResult execution result model
+│   ├── engine.py           # AgentEngine execution orchestrator
+│   ├── registry.py         # AgentRegistry in-memory registry
+│   ├── messages.py         # AgentMessage and MessageType enum
+│   ├── message_bus.py      # MessageBus interface and InMemoryMessageBus
+│   ├── owner_agent.py      # OwnerAgent implementation & OwnerDecision schema
+│   │
+│   └── prompts/            # Grounded prompt instructions
+│       ├── __init__.py
+│       └── owner_prompt.py # OWNER_SYSTEM_INSTRUCTION prompt
 │
 ├── tools/                  # Tool abstractions and security guardrails
 │   ├── __init__.py
@@ -43,13 +59,14 @@ Planned agent modules in subsequent phases include:
 │   ├── __init__.py
 │   └── base.py             # BaseRepository generic abstract class
 │
-├── core/                   # Core application models and exceptions
-│   ├── __init__.py
-│   └── exceptions.py       # Custom exception hierarchy
-│
 └── tests/                  # Unit test suite
     ├── __init__.py
-    └── test_config.py      # Tests for configuration and environment handling
+    ├── test_config.py        # Tests for configuration and environment handling
+    ├── test_genai_client.py  # Tests for GenAIClient (offline mocked)
+    ├── test_agent_registry.py# Tests for AgentRegistry
+    ├── test_message_bus.py   # Tests for InMemoryMessageBus
+    ├── test_agent_engine.py  # Tests for AgentEngine execution
+    └── test_owner_agent.py   # Tests for OwnerAgent decision logic
 ```
 
 ## Setup & Installation
@@ -73,10 +90,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` to set your Google API key:
+Edit `.env` to set your Google API key and model choice:
 
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 ```
@@ -91,25 +109,29 @@ Run the application entry point:
 python main.py
 ```
 
-Expected output when running without API keys in Phase 1:
+Expected output when running without API keys:
 
 ```text
-INFO - Initializing Multi-Agent AI System foundation...
-INFO - Configuration loaded successfully (Environment: development)
-INFO - No API key detected in environment. GenAI client initialization skipped for Phase 1 setup.
-INFO - Multi-Agent AI System Phase 1 foundation initialized successfully.
+INFO - Initializing Multi-Agent AI System Phase 2 architecture...
+INFO - Configuration loaded successfully (Environment: development, Model: gemini-2.5-flash)
+INFO - No API key detected in environment. GenAIClient initialization skipped for bootstrap check.
+INFO - Active registered agents in system: []
+INFO - Multi-Agent AI System Phase 2 foundation initialized successfully.
 ```
 
 ## How to Run Tests
 
-Execute the unit test suite with `pytest`:
+Execute the full unit test suite with `pytest`:
 
 ```bash
-pytest
+python3 -m pytest
 ```
 
-## Phase 1 Scope & Limitations
+All standard unit tests run completely offline without requiring real API credentials.
 
-- **Foundation Scaffolding**: Agent classes in `agents/` are structural placeholders without live business logic or fake intelligence.
-- **Tools & Database**: Abstract contracts (`BaseTool`, `BaseRepository`) define boundaries without binding to concrete DB engines or allowing arbitrary code execution.
-- **SDK Compliance**: Built exclusively with the official modern `google-genai` SDK (`from google import genai`). The legacy `google-generativeai` package is strictly avoided.
+## Phase 2 Implementation Details
+
+- **Centralized GenAI Client**: `GenAIClient` wraps the official `google-genai` SDK (`from google import genai`), managing credentials securely, preventing API key exposure, and sanitizing raw SDK errors into typed application exceptions (`GenAIClientError`, `GenAIModelError`).
+- **Agent Framework & Contracts**: `BaseAgent`, `AgentContext`, `AgentResult`, `AgentRegistry`, and `AgentEngine` establish strict typed boundaries and recursion prevention for agent execution.
+- **Inter-Agent Messaging**: `InMemoryMessageBus` provides safe, typed pub/sub and request/reply inter-agent communication using validated `AgentMessage` objects.
+- **Owner Agent**: `OwnerAgent` leverages grounded system instructions (`OWNER_SYSTEM_INSTRUCTION`) and structured Pydantic model parsing (`OwnerDecision`) for decision support without hallucinating unverified business data.

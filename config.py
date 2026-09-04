@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[SecretStr] = Field(
         default=None, alias="GEMINI_API_KEY"
     )
+    gemini_model: str = Field(
+        default="gemini-2.5-flash", alias="GEMINI_MODEL"
+    )
     environment: str = Field(default="development", alias="ENVIRONMENT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
@@ -61,6 +64,7 @@ class Settings(BaseSettings):
         return (
             f"Settings(environment={self.environment!r}, "
             f"log_level={self.log_level!r}, "
+            f"gemini_model={self.gemini_model!r}, "
             f"google_api_key={'***' if self.google_api_key else None!r}, "
             f"gemini_api_key={'***' if self.gemini_api_key else None!r})"
         )
