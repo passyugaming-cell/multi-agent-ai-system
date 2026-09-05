@@ -1,4 +1,4 @@
-"""GenAI core package initialization proxy."""
+"""GenAI core package initialization."""
 
 from app.core.ai.exceptions import (
     GenAIAuthError,

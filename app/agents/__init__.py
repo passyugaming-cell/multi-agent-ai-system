@@ -1,4 +1,4 @@
-"""Agents package initialization proxy."""
+"""Agents package initialization for app package."""
 
 from app.agents.base import BaseAgent
 from app.agents.context import AgentContext

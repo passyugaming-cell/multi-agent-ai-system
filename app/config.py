@@ -1,4 +1,4 @@
-"""Application configuration module proxy."""
+"""Application configuration module proxy for app package."""
 
 from app.core.config import Settings, ConfigurationError, get_genai_client, get_settings
 
