@@ -1,21 +1,15 @@
-"""Exceptions for Google GenAI client and interactions."""
+"""GenAI exceptions proxy for Multi-Agent AI System."""
 
-from core.exceptions import ApplicationError
+from app.core.ai.exceptions import (
+    GenAIAuthError,
+    GenAIClientError,
+    GenAIModelError,
+    GenAIRateLimitError,
+)
 
-
-class GenAIClientError(ApplicationError):
-    """Base exception for GenAI client operations."""
-
-    pass
-
-
-class GenAIAuthError(GenAIClientError):
-    """Raised when authentication with Google GenAI API fails."""
-
-    pass
-
-
-class GenAIModelError(GenAIClientError):
-    """Raised when GenAI model execution or structured output validation fails."""
-
-    pass
+__all__ = [
+    "GenAIAuthError",
+    "GenAIClientError",
+    "GenAIModelError",
+    "GenAIRateLimitError",
+]
